@@ -1,9 +1,9 @@
-st.set_page_config(page_title="ARG Finder", page_icon="🧬")
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from utils import read_fasta, gc_content, find_orfs
 from model import resistance_score
+st.set_page_config(page_title="ARG Finder", page_icon="🧬")
 
 #title
 st.title("🧬 ARG Finder — Antibiotic Resistance Predictor")
@@ -61,3 +61,4 @@ if uploaded:
     plt.title("GC vs AT Composition")
 
     st.pyplot(plt)
+
