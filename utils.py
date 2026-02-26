@@ -1,38 +1,45 @@
-from Bio import SeqIO
-import io
+import pandas as pd
+from collections import Counter
 
-# -------- READ FASTA --------
+
+# ---------- FASTA READER ----------
 def read_fasta(uploaded_file):
-    stringio = io.StringIO(uploaded_file.getvalue().decode("utf-8"))
-    record = SeqIO.read(stringio, "fasta")
-    return str(record.seq)
+    if uploaded_file is None:
+        return None
 
-# -------- GC CONTENT --------
-def gc_content(seq):
-    g = seq.count("G")
-    c = seq.count("C")
-    return round((g + c) / len(seq) * 100, 2)
+    content = uploaded_file.getvalue().decode("utf-8")
+    lines = content.splitlines()
 
-# -------- FIND ORFs --------
-def find_orfs(seq):
-    start = "ATG"
-    stop_codons = ["TAA", "TAG", "TGA"]
-    orfs = []
+    sequence = ""
+    for line in lines:
+        if not line.startswith(">"):
+            sequence += line.strip()
 
-    for i in range(len(seq) - 3):
-        codon = seq[i:i+3]
-        if codon == start:
-            for j in range(i+3, len(seq)-3, 3):
-                stop = seq[j:j+3]
-                if stop in stop_codons:
-                    orfs.append(seq[i:j+3])
-                    break
-    return orfs
+    return sequence.upper()
 
-# -------- DETECT GENES --------
-def detect_genes(seq, db):
-    matches = []
-    for gene in db["gene"]:
-        if gene in seq:
-            matches.append(gene)
-    return matches
+
+# ---------- BASIC STATS ----------
+def sequence_stats(seq):
+    if not seq:
+        return None
+
+    length = len(seq)
+    counts = Counter(seq)
+
+    gc = counts.get("G", 0) + counts.get("C", 0)
+    gc_content = round((gc / length) * 100, 2)
+
+    return {
+        "length": length,
+        "gc_content": gc_content,
+        "counts": counts
+    }
+
+
+# ---------- DATAFRAME FOR PLOT ----------
+def nucleotide_dataframe(counts):
+    df = pd.DataFrame({
+        "Nucleotide": list(counts.keys()),
+        "Count": list(counts.values())
+    })
+    return df.sort_values("Nucleotide")
