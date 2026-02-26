@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from utils import read_fasta, gc_content, find_orfs, detect_genes
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="ARG Finder", page_icon="🧬", layout="centered")
@@ -77,3 +76,4 @@ if uploaded:
 
 else:
     st.warning("Please upload a FASTA file to start analysis.")
+
