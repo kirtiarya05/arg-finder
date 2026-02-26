@@ -1,101 +1,79 @@
 import streamlit as st
-import matplotlib.pyplot as plt
 import pandas as pd
-from utils import read_fasta, sequence_stats, detect_genes, find_orfs, resistance_score
+import matplotlib.pyplot as plt
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 
-# ---------- PAGE CONFIG ----------
+from utils import *
+from ml_model import predict_resistance
+
 st.set_page_config(page_title="ARG Finder", page_icon="🧬", layout="wide")
 
-st.title("🧬 ARG Finder — Antibiotic Resistance Predictor")
-
+# DARK THEME
 st.markdown("""
-Upload a FASTA file to:
-- Calculate GC content
-- Detect resistance genes
-- Identify ORFs
-- Estimate resistance score
-""")
+<style>
+body { background-color: #0e1117; color: white; }
+</style>
+""", unsafe_allow_html=True)
 
-# ---------- UPLOAD ----------
-uploaded = st.file_uploader("Upload FASTA file", type=["fasta", "fa", "txt"])
+st.title("🧬 ARG Finder — AI Bioinformatics Platform")
+
+uploaded = st.file_uploader("Upload FASTA", type=["fasta","fa","txt"])
 
 if not uploaded:
-    st.info("Upload a FASTA file to begin.")
     st.stop()
 
-sequence = read_fasta(uploaded)
+seq = read_fasta(uploaded)
 
-if not sequence:
-    st.error("Invalid FASTA file.")
-    st.stop()
-
-# ---------- ANALYSIS ----------
-length, gc_content, counts = sequence_stats(sequence)
-genes = detect_genes(sequence)
-orfs = find_orfs(sequence)
-score = resistance_score(gc_content, genes, orfs)
+length, gc, counts = sequence_stats(seq)
+genes = detect_genes(seq)
+orfs = find_orfs(seq)
+blast = similarity_search(seq)
+protein = translate(seq[:300])
+mutations = mutation_scan(seq)
+ml_pred = predict_resistance(gc, len(orfs), len(genes))
 
 # ---------- METRICS ----------
-c1, c2, c3, c4 = st.columns(4)
+c1,c2,c3,c4 = st.columns(4)
 c1.metric("Length", length)
-c2.metric("GC %", gc_content)
+c2.metric("GC%", gc)
 c3.metric("Genes", len(genes))
 c4.metric("ORFs", len(orfs))
 
-st.subheader(f"⚠ Resistance Score: {score}")
+st.subheader(f"🤖 ML Prediction: {ml_pred}")
 
-# ---------- NUCLEOTIDE PLOT ----------
-st.subheader("📊 Nucleotide Distribution")
-
-df = pd.DataFrame({
-    "Nucleotide": list(counts.keys()),
-    "Count": list(counts.values())
-})
-
+# ---------- PLOTS ----------
+df = pd.DataFrame({"Nucleotide": list(counts.keys()), "Count": list(counts.values())})
 fig, ax = plt.subplots()
 ax.bar(df["Nucleotide"], df["Count"])
-ax.set_title("Nucleotide Frequency")
 st.pyplot(fig)
 
-# ---------- GC PLOT ----------
-st.subheader("🧪 GC Content")
+# ---------- BLAST ----------
+st.subheader("🔎 Similarity Search")
+st.write(blast)
 
-fig2, ax2 = plt.subplots()
-ax2.bar(["GC"], [gc_content])
-ax2.set_ylim(0, 100)
-st.pyplot(fig2)
+# ---------- PROTEIN ----------
+st.subheader("🧬 Protein Translation Preview")
+st.text(protein[:200])
 
-# ---------- GENES ----------
-st.subheader("🧬 Detected ARG Genes")
+# ---------- MUTATIONS ----------
+st.subheader("⚠ Mutation Scan")
+st.write(mutations if mutations else "No mutations")
 
-if genes:
-    st.success(", ".join(genes))
-else:
-    st.warning("No ARG genes detected")
+# ---------- PDF REPORT ----------
+def create_pdf():
+    doc = SimpleDocTemplate("report.pdf")
+    styles = getSampleStyleSheet()
+    content = [
+        Paragraph(f"GC: {gc}", styles["Normal"]),
+        Paragraph(f"Genes: {genes}", styles["Normal"]),
+        Paragraph(f"Prediction: {ml_pred}", styles["Normal"])
+    ]
+    doc.build(content)
 
-# ---------- ORF VIEW ----------
-st.subheader("🧪 ORF Preview")
+create_pdf()
 
-if orfs:
-    st.text(orfs[0][:200] + "...")
-else:
-    st.warning("No ORFs detected")
+with open("report.pdf", "rb") as f:
+    st.download_button("📄 Download PDF", f, "report.pdf")
 
-# ---------- DOWNLOAD REPORT ----------
-report = {
-    "Length": length,
-    "GC Content": gc_content,
-    "Genes": genes,
-    "ORFs": len(orfs),
-    "Resistance Score": score
-}
-
-report_df = pd.DataFrame([report])
-
-st.download_button(
-    "📥 Download Report CSV",
-    report_df.to_csv(index=False),
-    file_name="arg_report.csv"
-)
-
-st.success("Analysis Complete ✅")
+st.success("Analysis complete")
