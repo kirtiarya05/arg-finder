@@ -1,6 +1,4 @@
-import pandas as pd
 from collections import Counter
-
 
 # ---------- FASTA READER ----------
 def read_fasta(uploaded_file):
@@ -18,7 +16,7 @@ def read_fasta(uploaded_file):
     return sequence.upper()
 
 
-# ---------- BASIC STATS ----------
+# ---------- SEQUENCE STATS ----------
 def sequence_stats(seq):
     if not seq:
         return None
@@ -29,17 +27,4 @@ def sequence_stats(seq):
     gc = counts.get("G", 0) + counts.get("C", 0)
     gc_content = round((gc / length) * 100, 2)
 
-    return {
-        "length": length,
-        "gc_content": gc_content,
-        "counts": counts
-    }
-
-
-# ---------- DATAFRAME FOR PLOT ----------
-def nucleotide_dataframe(counts):
-    df = pd.DataFrame({
-        "Nucleotide": list(counts.keys()),
-        "Count": list(counts.values())
-    })
-    return df.sort_values("Nucleotide")
+    return length, gc_content, counts
