@@ -1,55 +1,50 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
-from utils import read_fasta, sequence_stats
+from utils import read_fasta, sequence_stats, detect_genes, find_orfs, resistance_score
 
 # ---------- PAGE CONFIG ----------
-st.set_page_config(
-    page_title="ARG Finder",
-    page_icon="🧬",
-    layout="wide"
-)
+st.set_page_config(page_title="ARG Finder", page_icon="🧬", layout="wide")
 
-# ---------- HEADER ----------
-st.title("🧬 ARG Finder — DNA Sequence Analyzer")
+st.title("🧬 ARG Finder — Antibiotic Resistance Predictor")
+
 st.markdown("""
-Upload a FASTA file to analyze:
-- Sequence length
-- GC content
-- Nucleotide distribution
+Upload a FASTA file to:
+- Calculate GC content
+- Detect resistance genes
+- Identify ORFs
+- Estimate resistance score
 """)
 
-# ---------- FILE UPLOAD ----------
-uploaded = st.file_uploader(
-    "Upload FASTA file",
-    type=["fasta", "fa", "txt"]
-)
+# ---------- UPLOAD ----------
+uploaded = st.file_uploader("Upload FASTA file", type=["fasta", "fa", "txt"])
 
-if uploaded is None:
-    st.info("Please upload a FASTA file to begin.")
+if not uploaded:
+    st.info("Upload a FASTA file to begin.")
     st.stop()
 
-# ---------- PROCESS ----------
 sequence = read_fasta(uploaded)
 
 if not sequence:
     st.error("Invalid FASTA file.")
     st.stop()
 
+# ---------- ANALYSIS ----------
 length, gc_content, counts = sequence_stats(sequence)
+genes = detect_genes(sequence)
+orfs = find_orfs(sequence)
+score = resistance_score(gc_content, genes, orfs)
 
 # ---------- METRICS ----------
-col1, col2, col3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Length", length)
+c2.metric("GC %", gc_content)
+c3.metric("Genes", len(genes))
+c4.metric("ORFs", len(orfs))
 
-col1.metric("Sequence Length", length)
-col2.metric("GC Content (%)", gc_content)
-col3.metric("Unique Bases", len(counts))
+st.subheader(f"⚠ Resistance Score: {score}")
 
-# ---------- SEQUENCE PREVIEW ----------
-with st.expander("Preview Sequence"):
-    st.text_area("", sequence[:2000], height=200)
-
-# ---------- VISUALIZATION ----------
+# ---------- NUCLEOTIDE PLOT ----------
 st.subheader("📊 Nucleotide Distribution")
 
 df = pd.DataFrame({
@@ -59,22 +54,48 @@ df = pd.DataFrame({
 
 fig, ax = plt.subplots()
 ax.bar(df["Nucleotide"], df["Count"])
-ax.set_xlabel("Nucleotide")
-ax.set_ylabel("Count")
 ax.set_title("Nucleotide Frequency")
-
 st.pyplot(fig)
 
-# ---------- GC VISUAL ----------
-st.subheader("🧪 GC Content Overview")
+# ---------- GC PLOT ----------
+st.subheader("🧪 GC Content")
 
 fig2, ax2 = plt.subplots()
-ax2.bar(["GC Content"], [gc_content])
+ax2.bar(["GC"], [gc_content])
 ax2.set_ylim(0, 100)
-ax2.set_ylabel("Percentage")
-ax2.set_title("GC Content Percentage")
-
 st.pyplot(fig2)
 
-# ---------- FOOTER ----------
+# ---------- GENES ----------
+st.subheader("🧬 Detected ARG Genes")
+
+if genes:
+    st.success(", ".join(genes))
+else:
+    st.warning("No ARG genes detected")
+
+# ---------- ORF VIEW ----------
+st.subheader("🧪 ORF Preview")
+
+if orfs:
+    st.text(orfs[0][:200] + "...")
+else:
+    st.warning("No ORFs detected")
+
+# ---------- DOWNLOAD REPORT ----------
+report = {
+    "Length": length,
+    "GC Content": gc_content,
+    "Genes": genes,
+    "ORFs": len(orfs),
+    "Resistance Score": score
+}
+
+report_df = pd.DataFrame([report])
+
+st.download_button(
+    "📥 Download Report CSV",
+    report_df.to_csv(index=False),
+    file_name="arg_report.csv"
+)
+
 st.success("Analysis Complete ✅")
