@@ -1,6 +1,7 @@
 import streamlit as st
-import plotly.express as px
-from utils import read_fasta, sequence_stats, nucleotide_dataframe
+import matplotlib.pyplot as plt
+import pandas as pd
+from utils import read_fasta, sequence_stats
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(
@@ -9,25 +10,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------- CUSTOM CSS ----------
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 2rem;
-}
-.metric-card {
-    background: #111827;
-    padding: 20px;
-    border-radius: 14px;
-    text-align: center;
-    color: white;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # ---------- HEADER ----------
-st.title("🧬 ARG Finder Dashboard")
-st.caption("Upload FASTA → Analyze sequence → Visual insights")
+st.title("🧬 ARG Finder — DNA Sequence Analyzer")
+st.markdown("""
+Upload a FASTA file to analyze:
+- Sequence length
+- GC content
+- Nucleotide distribution
+""")
 
 # ---------- FILE UPLOAD ----------
 uploaded = st.file_uploader(
@@ -36,69 +26,55 @@ uploaded = st.file_uploader(
 )
 
 if uploaded is None:
-    st.info("Upload a FASTA file to begin analysis")
+    st.info("Please upload a FASTA file to begin.")
     st.stop()
 
 # ---------- PROCESS ----------
-with st.spinner("Reading sequence..."):
-    sequence = read_fasta(uploaded)
+sequence = read_fasta(uploaded)
 
 if not sequence:
-    st.error("Invalid FASTA file")
+    st.error("Invalid FASTA file.")
     st.stop()
 
-stats = sequence_stats(sequence)
+length, gc_content, counts = sequence_stats(sequence)
 
 # ---------- METRICS ----------
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Sequence Length", stats["length"])
-col2.metric("GC Content %", stats["gc_content"])
-col3.metric("Unique Bases", len(stats["counts"]))
+col1.metric("Sequence Length", length)
+col2.metric("GC Content (%)", gc_content)
+col3.metric("Unique Bases", len(counts))
 
 # ---------- SEQUENCE PREVIEW ----------
-with st.expander("Sequence Preview"):
+with st.expander("Preview Sequence"):
     st.text_area("", sequence[:2000], height=200)
 
 # ---------- VISUALIZATION ----------
-df = nucleotide_dataframe(stats["counts"])
+st.subheader("📊 Nucleotide Distribution")
 
-col4, col5 = st.columns(2)
+df = pd.DataFrame({
+    "Nucleotide": list(counts.keys()),
+    "Count": list(counts.values())
+})
 
-# Bar chart
-fig_bar = px.bar(
-    df,
-    x="Nucleotide",
-    y="Count",
-    title="Nucleotide Distribution",
-    text="Count"
-)
+fig, ax = plt.subplots()
+ax.bar(df["Nucleotide"], df["Count"])
+ax.set_xlabel("Nucleotide")
+ax.set_ylabel("Count")
+ax.set_title("Nucleotide Frequency")
 
-col4.plotly_chart(fig_bar, use_container_width=True)
+st.pyplot(fig)
 
-# Pie chart
-fig_pie = px.pie(
-    df,
-    names="Nucleotide",
-    values="Count",
-    title="Composition"
-)
+# ---------- GC VISUAL ----------
+st.subheader("🧪 GC Content Overview")
 
-col5.plotly_chart(fig_pie, use_container_width=True)
+fig2, ax2 = plt.subplots()
+ax2.bar(["GC Content"], [gc_content])
+ax2.set_ylim(0, 100)
+ax2.set_ylabel("Percentage")
+ax2.set_title("GC Content Percentage")
 
-# ---------- GC GAUGE ----------
-fig_gauge = px.bar(
-    x=["GC Content"],
-    y=[stats["gc_content"]],
-    text=[f'{stats["gc_content"]}%'],
-    title="GC Content Overview"
-)
+st.pyplot(fig2)
 
-st.plotly_chart(fig_gauge, use_container_width=True)
-
-# ---------- DOWNLOAD ----------
-st.download_button(
-    "Download Sequence",
-    sequence,
-    file_name="sequence.txt"
-)
+# ---------- FOOTER ----------
+st.success("Analysis Complete ✅")
