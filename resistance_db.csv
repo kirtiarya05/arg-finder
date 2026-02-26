@@ -1,0 +1,5 @@
+gene,motif,antibiotic
+blaTEM,ATGAGTATTCAACATTTCCG,Penicillin
+mecA,ATGAAAAAAAGATGGC,MRSA
+vanA,ATGAATAGAATAAAAGTTGCA,Vancomycin
+tetM,ATGAAAACTATTGGTTTT,Tetracycline
