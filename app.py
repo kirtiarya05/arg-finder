@@ -1,79 +1,104 @@
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
+from utils import read_fasta, sequence_stats, nucleotide_dataframe
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(page_title="ARG Finder", page_icon="🧬", layout="centered")
-
-# ---------------- SIDEBAR ----------------
-with st.sidebar:
-    st.header("🧬 About")
-    st.write(
-        "ARG Finder is a bioinformatics mini-tool that analyzes DNA sequences "
-        "to detect antibiotic resistance genes and genomic features."
-    )
-    st.write("**Tech Stack:** Streamlit, Biopython, Pandas, Matplotlib")
-    st.write("Created for learning bioinformatics + Python deployment.")
-
-# ---------------- MAIN UI ----------------
-st.title("🧬 ARG Finder — Antibiotic Resistance Predictor")
-st.markdown(
-    "Upload a **DNA FASTA file** and this tool will:\n"
-    "- Calculate GC content\n"
-    "- Detect resistance genes\n"
-    "- Estimate resistance score\n"
-    "- Identify open reading frames (ORFs)"
+# ---------- PAGE CONFIG ----------
+st.set_page_config(
+    page_title="ARG Finder",
+    page_icon="🧬",
+    layout="wide"
 )
 
-# ---------------- FILE UPLOAD ----------------
-uploaded = st.file_uploader("📂 Upload FASTA file", type=["fasta", "fa"])
+# ---------- CUSTOM CSS ----------
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 2rem;
+}
+.metric-card {
+    background: #111827;
+    padding: 20px;
+    border-radius: 14px;
+    text-align: center;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ---------------- PROCESSING ----------------
-if uploaded:
-    st.info("Analyzing sequence...")
+# ---------- HEADER ----------
+st.title("🧬 ARG Finder Dashboard")
+st.caption("Upload FASTA → Analyze sequence → Visual insights")
 
-    # Read sequence
+# ---------- FILE UPLOAD ----------
+uploaded = st.file_uploader(
+    "Upload FASTA file",
+    type=["fasta", "fa", "txt"]
+)
+
+if uploaded is None:
+    st.info("Upload a FASTA file to begin analysis")
+    st.stop()
+
+# ---------- PROCESS ----------
+with st.spinner("Reading sequence..."):
     sequence = read_fasta(uploaded)
 
-    # Load resistance database
-    db = pd.read_csv("resistance_db.csv")
+if not sequence:
+    st.error("Invalid FASTA file")
+    st.stop()
 
-    # Perform analysis
-    gc = gc_content(sequence)
-    matches = detect_genes(sequence, db)
-    orfs = find_orfs(sequence)
+stats = sequence_stats(sequence)
 
-    # Resistance score formula
-    score = round(gc + len(matches) * 10, 2)
+# ---------- METRICS ----------
+col1, col2, col3 = st.columns(3)
 
-    # ---------------- RESULTS ----------------
-    st.subheader("📊 Results")
+col1.metric("Sequence Length", stats["length"])
+col2.metric("GC Content %", stats["gc_content"])
+col3.metric("Unique Bases", len(stats["counts"]))
 
-    col1, col2 = st.columns(2)
-    col1.metric("GC Content", f"{gc}%")
-    col2.metric("ORFs Found", len(orfs))
+# ---------- SEQUENCE PREVIEW ----------
+with st.expander("Sequence Preview"):
+    st.text_area("", sequence[:2000], height=200)
 
-    st.success(f"Resistance Score: {score}")
+# ---------- VISUALIZATION ----------
+df = nucleotide_dataframe(stats["counts"])
 
-    st.write("### 🧬 Detected Genes")
-    if matches:
-        st.write(matches)
-    else:
-        st.warning("No resistance genes detected.")
+col4, col5 = st.columns(2)
 
-    # ---------------- VISUALIZATION ----------------
-    if matches:
-        gene_counts = {gene: 1 for gene in matches}
+# Bar chart
+fig_bar = px.bar(
+    df,
+    x="Nucleotide",
+    y="Count",
+    title="Nucleotide Distribution",
+    text="Count"
+)
 
-        fig, ax = plt.subplots()
-        ax.bar(gene_counts.keys(), gene_counts.values())
-        ax.set_title("Detected Resistance Genes")
-        ax.set_ylabel("Presence")
+col4.plotly_chart(fig_bar, use_container_width=True)
 
-        st.pyplot(fig)
+# Pie chart
+fig_pie = px.pie(
+    df,
+    names="Nucleotide",
+    values="Count",
+    title="Composition"
+)
 
-    st.balloons()
+col5.plotly_chart(fig_pie, use_container_width=True)
 
-else:
-    st.warning("Please upload a FASTA file to start analysis.")
+# ---------- GC GAUGE ----------
+fig_gauge = px.bar(
+    x=["GC Content"],
+    y=[stats["gc_content"]],
+    text=[f'{stats["gc_content"]}%'],
+    title="GC Content Overview"
+)
 
+st.plotly_chart(fig_gauge, use_container_width=True)
+
+# ---------- DOWNLOAD ----------
+st.download_button(
+    "Download Sequence",
+    sequence,
+    file_name="sequence.txt"
+)
