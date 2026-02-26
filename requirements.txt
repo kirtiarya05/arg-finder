@@ -1,4 +1,5 @@
 biopython
 pandas
 scikit-learn
+matplotlib
 streamlit
