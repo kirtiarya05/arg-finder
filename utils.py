@@ -2,8 +2,8 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 import io
 
-def read_fasta(file):
-    stringio = io.StringIO(file.getvalue().decode("utf-8"))
+def read_fasta(uploaded_file):
+    stringio = io.StringIO(uploaded_file.getvalue().decode("utf-8"))
     record = SeqIO.read(stringio, "fasta")
     return str(record.seq)
 
@@ -19,4 +19,5 @@ def find_orfs(sequence):
         trans = seq[i:].translate()
         if "*" in str(trans):
             orfs.append(str(trans))
+
     return orfs
