@@ -1,64 +1,79 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from utils import read_fasta, gc_content, find_orfs
-from model import resistance_score
-st.set_page_config(page_title="ARG Finder", page_icon="🧬")
+from utils import read_fasta, gc_content, find_orfs, detect_genes
 
-#title
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="ARG Finder", page_icon="🧬", layout="centered")
+
+# ---------------- SIDEBAR ----------------
+with st.sidebar:
+    st.header("🧬 About")
+    st.write(
+        "ARG Finder is a bioinformatics mini-tool that analyzes DNA sequences "
+        "to detect antibiotic resistance genes and genomic features."
+    )
+    st.write("**Tech Stack:** Streamlit, Biopython, Pandas, Matplotlib")
+    st.write("Created for learning bioinformatics + Python deployment.")
+
+# ---------------- MAIN UI ----------------
 st.title("🧬 ARG Finder — Antibiotic Resistance Predictor")
-st.info("Upload DNA FASTA file to detect resistance genes and genomic features.")
+st.markdown(
+    "Upload a **DNA FASTA file** and this tool will:\n"
+    "- Calculate GC content\n"
+    "- Detect resistance genes\n"
+    "- Estimate resistance score\n"
+    "- Identify open reading frames (ORFs)"
+)
 
-# Sidebar info
-st.sidebar.title("About")
-st.sidebar.info("This tool analyzes DNA sequences and predicts antibiotic resistance genes.")
+# ---------------- FILE UPLOAD ----------------
+uploaded = st.file_uploader("📂 Upload FASTA file", type=["fasta", "fa"])
 
-# Upload FASTA file
-uploaded = st.file_uploader("Upload FASTA file")
-
-# Run analysis only if file uploaded
+# ---------------- PROCESSING ----------------
 if uploaded:
+    st.info("Analyzing sequence...")
+
     # Read sequence
     sequence = read_fasta(uploaded)
-
-    st.write("Sequence Length:", len(sequence))
 
     # Load resistance database
     db = pd.read_csv("resistance_db.csv")
 
-    # Motif search
-    matches = []
-    for _, row in db.iterrows():
-        if row["motif"] in sequence:
-            matches.append(row["gene"])
-
-    # Biological metrics
+    # Perform analysis
     gc = gc_content(sequence)
+    matches = detect_genes(sequence, db)
     orfs = find_orfs(sequence)
-    score = resistance_score(matches, gc)
 
-    # Results
-    st.subheader("Results")
-    st.write("GC Content:", gc)
-    st.write("Detected Genes:", matches)
-    st.write("Resistance Score:", score)
-    st.write("ORFs Found:", len(orfs))
+    # Resistance score formula
+    score = round(gc + len(matches) * 10, 2)
+
+    # ---------------- RESULTS ----------------
+    st.subheader("📊 Results")
+
+    col1, col2 = st.columns(2)
+    col1.metric("GC Content", f"{gc}%")
+    col2.metric("ORFs Found", len(orfs))
 
     st.success(f"Resistance Score: {score}")
 
-    # 📊 Bar chart for detected genes
+    st.write("### 🧬 Detected Genes")
+    if matches:
+        st.write(matches)
+    else:
+        st.warning("No resistance genes detected.")
+
+    # ---------------- VISUALIZATION ----------------
     if matches:
         gene_counts = {gene: 1 for gene in matches}
-        plt.figure()
-        plt.bar(gene_counts.keys(), gene_counts.values())
-        plt.title("Detected Resistance Genes")
-        st.pyplot(plt)
 
-    # 🧬 Pie chart for GC vs AT
-    at = 100 - gc
-    plt.figure()
-    plt.pie([gc, at], labels=["GC", "AT"], autopct="%1.1f%%")
-    plt.title("GC vs AT Composition")
+        fig, ax = plt.subplots()
+        ax.bar(gene_counts.keys(), gene_counts.values())
+        ax.set_title("Detected Resistance Genes")
+        ax.set_ylabel("Presence")
 
-    st.pyplot(plt)
+        st.pyplot(fig)
 
+    st.balloons()
+
+else:
+    st.warning("Please upload a FASTA file to start analysis.")
