@@ -1,11 +1,13 @@
+st.set_page_config(page_title="ARG Finder", page_icon="🧬")
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from utils import read_fasta, gc_content, find_orfs
 from model import resistance_score
 
-# Title
+#title
 st.title("🧬 ARG Finder — Antibiotic Resistance Predictor")
+st.info("Upload DNA FASTA file to detect resistance genes and genomic features.")
 
 # Sidebar info
 st.sidebar.title("About")
@@ -42,7 +44,7 @@ if uploaded:
     st.write("Resistance Score:", score)
     st.write("ORFs Found:", len(orfs))
 
-    st.success("Analysis Complete ✅")
+    st.success(f"Resistance Score: {score}")
 
     # 📊 Bar chart for detected genes
     if matches:
@@ -57,4 +59,5 @@ if uploaded:
     plt.figure()
     plt.pie([gc, at], labels=["GC", "AT"], autopct="%1.1f%%")
     plt.title("GC vs AT Composition")
+
     st.pyplot(plt)
