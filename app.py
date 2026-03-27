@@ -10,6 +10,7 @@ from ml_model import predict_resistance
 st.set_page_config(page_title="ARG Finder", page_icon="🧬", layout="wide")
 
 # DARK THEME
+
 st.markdown("""
 <style>
 body { background-color: #0e1117; color: white; }
